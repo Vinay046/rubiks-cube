@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <shader.hpp>
+#include <stb_image.hpp>
 
 GLfloat WINDOW_WIDTH = 1920;
 GLfloat WINDOW_HEIGHT = 1080;
@@ -20,7 +21,6 @@ bool mousePressedLeft = false;
 bool mousePressedRight = false;
 unsigned int VBO, VAO, EBO;
 
-// float angleX = 0.0f; // Current rotation angle around the X-axis
 float rotationSpeed = 90.0f; // Degrees per second
 
 float targetAngleX = 0.0f; // Target rotation angle
@@ -29,75 +29,49 @@ bool ifRotatingX = false;  // Flag to check if rotation is ongoing
 double lastFrameTime = 0.0;
 double deltaTime = 0.0;
 
-// Cube vertices and indices
-GLfloat vertices[] = {
-    // front face - red
-    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, // 0
-    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,  // 1
-    0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,   // 2
-    -0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,  // 3
+/* Vertices with texture coords */
+float vertices[] = {
+    // positions          // colors           // texture coords
+    -0.5f, -0.5f, -0.5f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f, // top right
+     0.5f, -0.5f, -0.5f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
+     0.5f,  0.5f, -0.5f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+    -0.5f,  0.5f, -0.5f,   1.0f, 0.0f, 0.0f,   0.0f, 1.0f, // top left
 
-    // top face - yellow (red + green)
-    -0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f, // 4
-    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,  // 5
-    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,   // 6
-    -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,  // 7
+    -0.5f, 0.5f, -0.5f,    1.0f, 1.0f, 0.0f,   1.0f, 1.0f, // top right
+     0.5f, 0.5f, -0.5f,    1.0f, 1.0f, 0.0f,   1.0f, 0.0f, // bottom right
+     0.5f, 0.5f,  0.5f,    1.0f, 1.0f, 0.0f,   0.0f, 0.0f, // bottom left
+    -0.5f, 0.5f,  0.5f,    1.0f, 1.0f, 0.0f,   0.0f, 1.0f, // top left
 
-    // left face - blue
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // 8
-    -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f,  // 9
-    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,   // 10
-    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,  // 11
+    -0.5f, -0.5f, -0.5f,   0.0f, 0.0f, 1.0f,   1.0f, 1.0f, // top right
+    -0.5f,  0.5f, -0.5f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f, // bottom right
+    -0.5f,  0.5f,  0.5f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
+    -0.5f, -0.5f,  0.5f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f, // top left
 
-    // right face - green
-    0.5f, -0.5f, -0.5f, 0.4f, 0.4f, 0.0f, // 12
-    0.5f, 0.5f, -0.5f, 0.4f, 0.4f, 0.0f,  // 13
-    0.5f, 0.5f, 0.5f, 0.4f, 0.4f, 0.0f,   // 14
-    0.5f, -0.5f, 0.5f, 0.4f, 0.4f, 0.0f,  // 15
+     0.5f, -0.5f, -0.5f,   0.4f, 0.4f, 0.0f,   1.0f, 1.0f, // top right
+     0.5f,  0.5f, -0.5f,   0.4f, 0.4f, 0.0f,   1.0f, 0.0f, // bottom right
+     0.5f,  0.5f,  0.5f,   0.4f, 0.4f, 0.0f,   0.0f, 0.0f, // bottom left
+     0.5f, -0.5f,  0.5f,   0.4f, 0.4f, 0.0f,   0.0f, 1.0f, // top left
 
-    // back face - orange (red + green but less intense than yellow)
-    -0.5f, -0.5f, 0.5f, 1.0f, 0.5f, 0.0f, // 16
-    0.5f, -0.5f, 0.5f, 1.0f, 0.5f, 0.0f,  // 17
-    0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.0f,   // 18
-    -0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.0f,  // 19
+    -0.5f, -0.5f,  0.5f,   1.0f, 0.5f, 0.0f,   1.0f, 1.0f, // top right
+     0.5f, -0.5f,  0.5f,   1.0f, 0.5f, 0.0f,   1.0f, 0.0f, // bottom right
+     0.5f,  0.5f,  0.5f,   1.0f, 0.5f, 0.0f,   0.0f, 0.0f, // bottom left
+    -0.5f,  0.5f,  0.5f,   1.0f, 0.5f, 0.0f,   0.0f, 1.0f, // top left
 
-    // bottom face - white
-    -0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f, // 20
-    0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f,  // 21
-    0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 1.0f, // 22
-    -0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 1.0f // 23
+    -0.5f, -0.5f,  0.5f,   1.0f, 1.0f, 1.0f,   1.0f, 1.0f, // top right
+     0.5f, -0.5f,  0.5f,   1.0f, 1.0f, 1.0f,   1.0f, 0.0f, // bottom right
+     0.5f, -0.5f, -0.5f,   1.0f, 1.0f, 1.0f,   0.0f, 0.0f, // bottom left
+    -0.5f, -0.5f, -0.5f,   1.0f, 1.0f, 1.0f,   0.0f, 1.0f  // top left
 };
 
 unsigned int indices[] = {
-    0, 1, 2, 2, 3, 0,       // Front face
-    4, 5, 6, 6, 7, 4,       // Back face
-    8, 9, 10, 10, 11, 8,    // Left face
-    12, 13, 14, 14, 15, 12, // Right face
-    16, 17, 18, 18, 19, 16, // Bottom face
-    20, 21, 22, 22, 23, 20  // Top face
+    0,  1,  2,  2,  3,  0,       // Front face
+    4,  5,  6,  6,  7,  4,       // Back face
+    8,  9,  10, 10, 11, 8,       // Left face
+    12, 13, 14, 14, 15, 12,      // Right face
+    16, 17, 18, 18, 19, 16,      // Bottom face
+    20, 21, 22, 22, 23, 20       // Top face
 };
-const char *vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aColor;
-    out vec3 vertexColor;
-    uniform mat4 model;
-    uniform mat4 view;
-    uniform mat4 projection;
-    void main() {
-        gl_Position = projection * view * model * vec4(aPos, 1.0);
-        vertexColor = aColor;
-    }
-)";
 
-const char *fragmentShaderSource = R"(
-    #version 330 core
-    in vec3 vertexColor;
-    out vec4 FragColor;
-    void main() {
-        FragColor = vec4(vertexColor, 1.0);
-    }
-)";
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
@@ -182,11 +156,39 @@ int main()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
     // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    /* Load and create a texture */
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // Set the texture wrapping parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // Set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Load image, create texture and generate mipmaps
+    int width, height, nrChannels;
+    // read files
+    unsigned char *data = stbi_load("resources/textures/stickerCenter.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -204,6 +206,7 @@ int main()
         // Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glBindTexture(GL_TEXTURE_2D, texture);
 
         if (ifRotatingX)
         {
