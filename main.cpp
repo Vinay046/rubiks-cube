@@ -5,8 +5,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-GLfloat WINDOW_WIDTH = 1920;
-GLfloat WINDOW_HEIGHT = 1080;
+GLfloat WINDOW_WIDTH = 600;
+GLfloat WINDOW_HEIGHT = 400;
 
 GLFWwindow *window;
 
@@ -17,6 +17,47 @@ double prevXPos = 0.0;
 double prevYPos = 0.0;
 bool mousePressedLeft = false;
 bool mousePressedRight = false;
+
+float rotationSpeed = 0.0f;         // Speed of rotation
+float maxRotationSpeed = 2.0f;      // Maximum speed
+float rotationAcceleration = 0.01f; // Acceleration (speed change per frame)
+float rotationAngle = 0.0f;         // Current rotation angle
+bool isRotating = true;             // Flag to control the rotation
+float rotationTarget = 0.0f;        // Target rotation angle (90 degrees)
+bool startRotation = false;
+bool reverseRotation = false;
+
+// glm::vec3 positions[26] = {
+//     // center pieces
+//     glm::vec3(0.0f, 1.0f, 0.0f),    // position0
+//     glm::vec3(0.0f, -1.0f, 0.0f),   // position1
+//     glm::vec3(1.0f, 0.0f, 0.0f),    // position2
+//     glm::vec3(-1.0f, 0.0f, 0.0f),   // position3
+//     glm::vec3(0.0f, 0.0f, -1.0f),   // position4
+//     glm::vec3(0.0f, 0.0f, 1.0f),    // position5
+//     // edge pieces
+//     glm::vec3(0.0f, 1.0f, 1.0f),    // position6
+//     glm::vec3(0.0f, 1.0f, -1.0f),   // position7
+//     glm::vec3(0.0f, -1.0f, 1.0f),   // position8
+//     glm::vec3(0.0f, -1.0f, -1.0f),  // position9
+//     glm::vec3(1.0f, 1.0f, 0.0f),    // position10
+//     glm::vec3(1.0f, -1.0f, 0.0f),   // position11
+//     glm::vec3(-1.0f, 1.0f, 0.0f),   // position12
+//     glm::vec3(-1.0f, -1.0f, 0.0f),  // position13
+//     glm::vec3(1.0f, 0.0f, 1.0f),    // position14
+//     glm::vec3(-1.0f, 0.0f, 1.0f),   // position15
+//     glm::vec3(1.0f, 0.0f, -1.0f),   // position16
+//     glm::vec3(-1.0f, 0.0f, -1.0f),  // position17
+//     // Corner pieces
+//     glm::vec3(1.0f, 1.0f, -1.0f),   // position18
+//     glm::vec3(1.0f, 1.0f, 1.0f),    // position19
+//     glm::vec3(-1.0f, 1.0f, -1.0f),  // position20
+//     glm::vec3(-1.0f, 1.0f, 1.0f),   // position21
+//     glm::vec3(1.0f, -1.0f, -1.0f),  // position22
+//     glm::vec3(1.0f, -1.0f, 1.0f),   // position23
+//     glm::vec3(-1.0f, -1.0f, -1.0f), // position24
+//     glm::vec3(-1.0f, -1.0f, 1.0f)   // position25
+// };
 
 const char *vertexShaderSource = R"(
     #version 330 core
@@ -45,6 +86,55 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
 void cursorPositionCallback(GLFWwindow *window, double xpos, double ypos);
+
+// void performRotation(float& angle, float& speed, float acceleration, float maxSpeed, float targetAngle, bool& rotating) {
+//     if (!startRotation && rotating) return;
+
+//     // Accelerate rotation speed until it reaches the maximum
+//     if (speed < maxSpeed) {
+//         speed += acceleration;
+//     } else {
+//         speed = maxSpeed; // Ensure speed does not exceed the maximum
+//     }
+
+//     // Perform the rotation
+//     angle += speed;
+
+//     // Check if the rotation has reached or exceeded the target angle
+//     if (angle >= targetAngle) {
+//         angle = targetAngle; // Set the angle to exactly the target angle
+//         speed = 0.0f; // Reset the speed
+//         rotating = false; // Mark that the rotation is finished
+//         startRotation = false; // Reset the start flag
+//     } else {
+//         rotating = true; // Mark that the cube is currently rotating
+//     }
+// }
+
+void performRotation(float& angle, float& speed, float acceleration, float maxSpeed, float targetAngle, bool& rotating, bool reverse) {
+    if ((!startRotation && rotating) || (rotating && angle == (reverse ? -targetAngle : targetAngle))) return;
+
+    // Accelerate rotation speed until it reaches the maximum
+    if (speed < maxSpeed) {
+        speed += acceleration;
+    } else {
+        speed = maxSpeed; // Ensure speed does not exceed the maximum
+    }
+
+    // Perform the rotation
+    angle += reverse ? -speed : speed; // Reverse the direction if needed
+
+    // Check if the rotation has reached or exceeded the target angle
+    if (reverse ? (angle <= -targetAngle) : (angle >= targetAngle)) {
+        angle = reverse ? -targetAngle : targetAngle; // Set the angle to exactly the target angle
+        speed = 0.0f; // Reset the speed
+        rotating = false; // Mark that the rotation is finished
+        startRotation = false; // Reset the start flag
+    } else {
+        rotating = true; // Mark that the cube is currently rotating
+    }
+}
+
 
 void renderCube(unsigned int shaderProgram, glm::vec3 position, glm::vec3 rotationAngles, glm::vec3 orientation)
 {
@@ -226,144 +316,31 @@ int main()
         glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        // center peices
-        {
-            glm::vec3 position0(0.0f, 1.0f, 0.0f);
-            glm::vec3 rotationAngles0(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation0(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position0, rotationAngles0, orientation0);
+        // Perform rotation
+        performRotation(rotationAngle, rotationSpeed, rotationAcceleration, maxRotationSpeed, rotationTarget, isRotating, reverseRotation);
+        glm::vec3 orientation(1.0f, 1.0f, 1.0f);
+        glm::vec3 rotationAngles(angleX, rotationAngle + angleY, angleZ);
+        glm::vec3 position(0.0f, 0.0f, 0.0f);
+        renderCube(shaderProgram, position, rotationAngles, orientation);
 
-            glm::vec3 position1(0.0f, -1.0f, 0.0f);
-            glm::vec3 rotationAngles1(angleX, angleY, 0.0f);
-            glm::vec3 orientation1(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position1, rotationAngles1, orientation1);
+        std::cout << rotationTarget << "." << std::endl;
+        // glm::vec3 rotationAngles[26];
+        // for (int i = 0; i < 26; ++i)
+        // {
+        //     // Update rotation angles dynamically
+        //     if (i == 0 || i == 6 || i == 7 || i == 10 || i == 12 || i == 18 || i == 19 || i == 20 || i == 21)
+        //     {
+        //         rotationAngles[i] = glm::vec3(angleX, (GLfloat)glfwGetTime() * 30, 0.0f); // Rotating continuously
+        //     }
+        //     else
+        //     {
+        //         rotationAngles[i] = glm::vec3(angleX, angleY, 0.0f); // Static rotation
+        //     }
 
-            glm::vec3 position2(1.0f, 0.0f, 0.0f);
-            glm::vec3 rotationAngles2(angleX, angleY, 0.0f);
-            glm::vec3 orientation2(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position2, rotationAngles2, orientation2);
+        //     glm::vec3 orientation(1.0f, 1.0f, 1.0f); // Assuming uniform scaling
+        //     renderCube(shaderProgram, positions[i], rotationAngles[i], orientation);
+        // }
 
-            glm::vec3 position3(-1.0f, 0.0f, 0.0f);
-            glm::vec3 rotationAngles3(angleX, angleY, 0.0f);
-            glm::vec3 orientation3(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position3, rotationAngles3, orientation3);
-
-            glm::vec3 position4(0.0f, 0.0f, -1.0f);
-            glm::vec3 rotationAngles4(angleX, angleY, 0.0f);
-            glm::vec3 orientation4(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position4, rotationAngles4, orientation4);
-
-            glm::vec3 position5(0.0f, 0.0f, 1.0f);
-            glm::vec3 rotationAngles5(angleX, angleY, 0.0f);
-            glm::vec3 orientation5(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position5, rotationAngles5, orientation5);
-        }
-
-        // edge peices
-        {
-            glm::vec3 position6(0.0f, 1.0f, 1.0f);
-            glm::vec3 rotationAngles6(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation6(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position6, rotationAngles6, orientation6);
-
-            glm::vec3 position7(0.0f, 1.0f, -1.0f);
-            glm::vec3 rotationAngles7(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation7(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position7, rotationAngles7, orientation7);
-
-            glm::vec3 position8(0.0f, -1.0f, 1.0f);
-            glm::vec3 rotationAngles8(angleX, angleY, 0.0f);
-            glm::vec3 orientation8(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position8, rotationAngles8, orientation8);
-
-            glm::vec3 position9(0.0f, -1.0f, -1.0f);
-            glm::vec3 rotationAngles9(angleX, angleY, 0.0f);
-            glm::vec3 orientation9(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position9, rotationAngles9, orientation9);
-
-            glm::vec3 position10(1.0f, 1.0f, 0.0f);
-            glm::vec3 rotationAngles10(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation10(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position10, rotationAngles10, orientation10);
-
-            glm::vec3 position11(1.0f, -1.0f, 0.0f);
-            glm::vec3 rotationAngles11(angleX, angleY, 0.0f);
-            glm::vec3 orientation11(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position11, rotationAngles11, orientation11);
-
-            glm::vec3 position12(-1.0f, 1.0f, 0.0f);
-            glm::vec3 rotationAngles12(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation12(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position12, rotationAngles12, orientation12);
-
-            glm::vec3 position13(-1.0f, -1.0f, 0.0f);
-            glm::vec3 rotationAngles13(angleX, angleY, 0.0f);
-            glm::vec3 orientation13(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position13, rotationAngles13, orientation13);
-
-            glm::vec3 position14(1.0f, 0.0f, 1.0f);
-            glm::vec3 rotationAngles14(angleX, angleY, 0.0f);
-            glm::vec3 orientation14(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position14, rotationAngles14, orientation14);
-
-            glm::vec3 position15(-1.0f, 0.0f, 1.0f);
-            glm::vec3 rotationAngles15(angleX, angleY, 0.0f);
-            glm::vec3 orientation15(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position15, rotationAngles15, orientation15);
-
-            glm::vec3 position16(1.0f, 0.0f, -1.0f);
-            glm::vec3 rotationAngles16(angleX, angleY, 0.0f);
-            glm::vec3 orientation16(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position16, rotationAngles16, orientation16);
-
-            glm::vec3 position17(-1.0f, 0.0f, -1.0f);
-            glm::vec3 rotationAngles17(angleX, angleY, 0.0f);
-            glm::vec3 orientation17(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position17, rotationAngles17, orientation17);
-        }
-
-        // corner peices
-        {
-            glm::vec3 position18(1.0f, 1.0f, -1.0f);
-            glm::vec3 rotationAngles18(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation18(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position18, rotationAngles18, orientation18);
-
-            glm::vec3 position19(1.0f, 1.0f, 1.0f);
-            glm::vec3 rotationAngles19(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation19(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position19, rotationAngles19, orientation19);
-
-            glm::vec3 position20(-1.0f, 1.0f, -1.0f);
-            glm::vec3 rotationAngles20(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation20(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position20, rotationAngles20, orientation20);
-
-            glm::vec3 position21(-1.0f, 1.0f, 1.0f);
-            glm::vec3 rotationAngles21(angleX, (GLfloat)glfwGetTime() * 30, 0.0f);
-            glm::vec3 orientation21(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position21, rotationAngles21, orientation21);
-
-            glm::vec3 position22(1.0f, -1.0f, -1.0f);
-            glm::vec3 rotationAngles22(angleX, angleY, 0.0f);
-            glm::vec3 orientation22(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position22, rotationAngles22, orientation22);
-
-            glm::vec3 position23(1.0f, -1.0f, 1.0f);
-            glm::vec3 rotationAngles23(angleX, angleY, 0.0f);
-            glm::vec3 orientation23(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position23, rotationAngles23, orientation23);
-
-            glm::vec3 position24(-1.0f, -1.0f, -1.0f);
-            glm::vec3 rotationAngles24(angleX, angleY, 0.0f);
-            glm::vec3 orientation24(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position24, rotationAngles24, orientation24);
-
-            glm::vec3 position25(-1.0f, -1.0f, 1.0f);
-            glm::vec3 rotationAngles25(angleX, angleY, 0.0f);
-            glm::vec3 orientation25(1.0f, 1.0f, 1.0f);
-            renderCube(shaderProgram, position25, rotationAngles25, orientation25);
-        }
         // Swap buffers and poll IO events
         glfwSwapBuffers(window);
     }
@@ -380,6 +357,22 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+
+    // Start the rotation when the user presses the 'R' key
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    {
+        rotationTarget += 90.0f;
+        startRotation = true;
+        reverseRotation = true;
+    }
+
+    // Start the rotation when the user presses the 'R' key
+    if (key == GLFW_KEY_E && action == GLFW_PRESS)
+    {
+        rotationTarget -= 90.0f;
+        startRotation = true;
+        reverseRotation = false;
     }
 }
 
