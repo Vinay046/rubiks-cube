@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <shader.hpp>
-#include <stb_image.hpp>
+#include <texture.hpp>
 #include <VAO.hpp>
 #include <VBO.hpp>
 #include <EBO.hpp>
@@ -22,7 +22,6 @@ double prevXPos = 0.0;
 double prevYPos = 0.0;
 bool mousePressedLeft = false;
 bool mousePressedRight = false;
-unsigned int VBO, VAO, EBO;
 
 float rotationSpeed = 90.0f; // Degrees per second
 
@@ -83,8 +82,6 @@ void cursorPositionCallback(GLFWwindow *window, double xpos, double ypos);
 
 void renderCube(Shader shader, glm::vec3 position, glm::vec3 rotationAngles, glm::vec3 orientation)
 {
-    glBindVertexArray(VAO);
-
     // Set the model matrix
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::rotate(model, glm::radians(rotationAngles.x), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -106,7 +103,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 16); // Request 4x multisampling
+    glfwWindowHint(GLFW_SAMPLES, 16); // Request 16x multisampling
 
     // After creating the OpenGL context with glfwMakeContextCurrent
     glEnable(GL_MULTISAMPLE); // Enable
@@ -146,61 +143,30 @@ int main()
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
 
+    /* Generates Vertex Array Object and binds it */
+    VAO VAO1;
+    VAO1.Bind();
 
+    /* Generates Vertex Buffer Object and links it to vertices */
+    VBO VBO1(vertices, sizeof(vertices));
+    /* Generates Element Buffer Object and links it to indices */
+    EBO EBO1(indices, sizeof(indices));
 
-    {glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    /* Links VBO attributes such as coordinates and colors to VAO */
+    VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 8* sizeof(float), (void*)0);
+    VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 8* sizeof(float), (void*)(3 * sizeof(float)));
+    VAO1.LinkAttrib(VBO1, 2, 2, GL_FLOAT, 8* sizeof(float), (void*)(6 * sizeof(float)));
 
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    // texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);}
+    /* Unbind all to prevent accidentally modifying them */
+    VAO1.Unbind();
+    VBO1.Unbind();
+    EBO1.Unbind();
 
     /* Load and create a texture */
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    // Set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // Set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // Load image, create texture and generate mipmaps
-    int width, height, nrChannels;
-    // read files
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char *data = stbi_load("resources/textures/edgeFace.png", &width, &height, &nrChannels, 0);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
+    Texture cubeFace("resources/textures/edgeFace.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
     lastFrameTime = glfwGetTime(); // Call this just before your main loop starts
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -213,7 +179,8 @@ int main()
         // Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glBindTexture(GL_TEXTURE_2D, texture);
+
+        cubeFace.Bind();
 
         if (ifRotatingX)
         {
@@ -247,6 +214,7 @@ int main()
         glm::vec3 rotationAngles0(angleX, angleY, 0.0f);
         glm::vec3 orientation0(1.0f, 1.0f, 1.0f);
 
+        VAO1.Bind(); // bind VAO just before rendering the cube.
         renderCube(shader, position0, rotationAngles0, orientation0);
 
         // Swap buffers and poll IO events
@@ -254,11 +222,11 @@ int main()
     }
 
     // Clean up and exit
-    shader.~Shader();
-    glBindVertexArray(0);
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+    shader.Delete();
+    VAO1.Delete();
+    VBO1.Delete();
+    EBO1.Delete();
+    cubeFace.Delete();
     glfwTerminate();
     return 0;
 }

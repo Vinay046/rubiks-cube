@@ -2,7 +2,7 @@
 CXX := g++
 
 # Compiler flags
-CXXFLAGS := -std=c++11 -Wextra
+CXXFLAGS := -std=c++11 #-Wextra
 
 # Executable name
 EXECUTABLE := main
