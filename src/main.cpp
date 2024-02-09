@@ -6,6 +6,9 @@
 #include <iostream>
 #include <shader.hpp>
 #include <stb_image.hpp>
+#include <VAO.hpp>
+#include <VBO.hpp>
+#include <EBO.hpp>
 
 GLfloat WINDOW_WIDTH = 1920;
 GLfloat WINDOW_HEIGHT = 1080;
@@ -143,7 +146,9 @@ int main()
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
 
-    glGenVertexArrays(1, &VAO);
+
+
+    {glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
@@ -163,25 +168,27 @@ int main()
     glEnableVertexAttribArray(1);
     // texture coord attribute
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(2);}
 
     /* Load and create a texture */
     unsigned int texture;
     glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
     // Set the texture wrapping parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     // Set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // Load image, create texture and generate mipmaps
     int width, height, nrChannels;
     // read files
-    unsigned char *data = stbi_load("resources/textures/stickerCenter.png", &width, &height, &nrChannels, 0);
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load("resources/textures/edgeFace.png", &width, &height, &nrChannels, 0);
     if (data)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else
@@ -192,7 +199,7 @@ int main()
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
+    glBindTexture(GL_TEXTURE_2D, 0);
     lastFrameTime = glfwGetTime(); // Call this just before your main loop starts
     // Main loop
     while (!glfwWindowShouldClose(window))
