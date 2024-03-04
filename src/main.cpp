@@ -21,7 +21,8 @@ float angleZ = 0.0f;
 double prevXPos = 0.0;
 double prevYPos = 0.0;
 bool mousePressedLeft = false;
-bool mousePressedRight = false;
+bool mousePressedRight = false; // test
+
 
 float rotationSpeed = 90.0f; // Degrees per second
 
